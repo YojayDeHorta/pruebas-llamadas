@@ -28,10 +28,17 @@ app.use(express.static('public'));
 io.on('connection', (socket) => {
     console.log(`Un usuario se ha conectado: ${socket.id}`);
 
+    let currentRoom = null;
+
     // Evento para unirse a una sala (una "llamada")
     socket.on('join-room', (roomName) => {
+        // Salir de la sala anterior si es que estaba en una
+        if (currentRoom) {
+            socket.leave(currentRoom);
+        }
         socket.join(roomName);
         console.log(`Usuario ${socket.id} se unió a la sala ${roomName}`);
+        currentRoom = roomName;
         // Notificar a los otros en la sala que un nuevo par se ha unido
         socket.to(roomName).emit('user-joined', socket.id);
     });
@@ -63,7 +70,10 @@ io.on('connection', (socket) => {
     // Manejar la desconexión de un usuario
     socket.on('disconnect', () => {
         console.log(`Usuario desconectado: ${socket.id}`);
-        // Aquí podrías notificar a otros en la sala si es necesario
+        // Notificar a los demás en la sala que este usuario se ha ido
+        if (currentRoom) {
+            socket.to(currentRoom).emit('user-left', socket.id);
+        }
     });
 });
 
