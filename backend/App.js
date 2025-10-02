@@ -1,20 +1,22 @@
 // 1. Importar las librerías necesarias
 const express = require('express');
 const http = require('http');
-// Cargar variables de entorno desde .env (solo para desarrollo local)
-require('dotenv').config();
-
 const { Server } = require("socket.io");
-const cors = require('cors');
+
+// Cargar variables de entorno desde .env (útil para desarrollo local, no para Docker)
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
 // 2. Configuración inicial
+const PORT = process.env.PORT || 3000;
 const app = express();
-// En Vercel, no definimos el servidor ni el puerto directamente.
-// Exportaremos la app y Vercel se encargará.
 const server = http.createServer(app); // Creamos el servidor para Socket.IO
 const io = new Server(server, {
     cors: {
-        origin: "*", // Permite todas las conexiones. Para producción, es mejor restringirlo.
+        // Para producción, deberías restringir esto al dominio de tu frontend.
+        // Ejemplo: origin: "https://mi-dominio-frontend.com"
+        origin: process.env.CORS_ORIGIN || "*",
         methods: ["GET", "POST"]
     }
 }); // Adjuntamos Socket.IO al servidor
@@ -65,13 +67,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// 5. Iniciar el servidor (solo para desarrollo local)
-if (process.env.NODE_ENV !== 'production') {
-    const PORT = process.env.PORT || 3000;
-    server.listen(PORT, () => {
-        console.log(`Servidor escuchando en http://localhost:${PORT}`);
-    });
-}
-
-// Exportamos el servidor para que Vercel pueda utilizarlo.
-module.exports = server;
+// 5. Iniciar el servidor
+server.listen(PORT, () => {
+    console.log(`Servidor de señalización escuchando en el puerto ${PORT}`);
+});

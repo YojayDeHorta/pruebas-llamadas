@@ -1,0 +1,4 @@
+# Ignorar las dependencias locales, ya que se instalarán dentro del contenedor
+node_modules
+npm-debug.log
+.env
