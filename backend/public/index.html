@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Llamadas WebRTC</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        video { background-color: black; width: 320px; height: 240px; border: 1px solid #ccc; }
+        .controls { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Llamada de Voz WebRTC</h1>
+    
+    <div class="controls">
+        <input type="text" id="roomNameInput" placeholder="Nombre de la sala" value="mi-llamada-123">
+        <button id="joinButton">Unirse a la Llamada</button>
+    </div>
+
+    <div>
+        <h2>Tu Micrófono (Local)</h2>
+        <video id="localVideo" autoplay playsinline></video>
+        <h2>Llamada (Remoto)</h2>
+        <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+
+    <!-- Librería cliente de Socket.IO (se sirve automáticamente por el servidor) -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Nuestro código de cliente -->
+    <script src="client.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "webrtc-signaling-server",
+  "version": "1.0.0",
+  "description": "Servidor de señalización para WebRTC con Socket.IO",
+  "main": "App.js",
+  "scripts": {
+    "start": "node App.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
