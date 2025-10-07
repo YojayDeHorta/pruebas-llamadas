@@ -1,109 +1,83 @@
-// server.js
+// server-webrtc.js
+// Servidor para aplicación WebRTC (mismo servidor que Asterisk)
 const express = require('express');
-const cors = require('cors');
-const AsteriskManager = require('asterisk-manager');
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const HTTP_PORT = 3500;
+const HTTPS_PORT = 3443;
 
-// Configuración de Asterisk Manager Interface (AMI)
-const ami = new AsteriskManager({
-  port: 5038,
-  host: 'localhost',
-  username: 'admin',  // Cambiar según tu configuración
-  password: 'secret', // Cambiar según tu configuración
-  events: 'on'
-});
-
-// Middleware
-app.use(cors());
+// Middleware para servir archivos estáticos
+app.use(express.static(__dirname));
 app.use(express.json());
 
-// Conectar a AMI
-ami.keepConnected();
-
-ami.on('connect', () => {
-  console.log('✓ Conectado a Asterisk AMI');
-});
-
-ami.on('error', (err) => {
-  console.error('Error AMI:', err);
-});
-
-// Endpoint para realizar llamadas
-app.post('/api/call', async (req, res) => {
-  const { phoneNumber, extension } = req.body;
-
-  if (!phoneNumber || !extension) {
-    return res.status(400).json({ 
-      error: 'Se requiere número de teléfono y extensión' 
-    });
-  }
-
-  // Formatear número: añadir 9 + 57 + número (según tu dialplan)
-  const dialNumber = `957${phoneNumber}`;
-
-  try {
-    // Originar llamada usando AMI
-    ami.action({
-      action: 'Originate',
-      channel: `SIP/${extension}`, // La extensión que contestará primero
-      context: 'internal',
-      exten: dialNumber,
-      priority: 1,
-      callerid: `Web Call <${extension}>`,
-      timeout: 30000,
-      async: true
-    }, (err, response) => {
-      if (err) {
-        console.error('Error al originar llamada:', err);
-        return res.status(500).json({ 
-          error: 'Error al originar llamada',
-          details: err.message 
-        });
-      }
-
-      if (response.response === 'Success') {
-        console.log(`✓ Llamada iniciada: ${extension} -> +57${phoneNumber}`);
-        res.json({ 
-          success: true, 
-          message: 'Llamada iniciada correctamente',
-          extension: extension,
-          phoneNumber: phoneNumber
-        });
-      } else {
-        console.error('Respuesta AMI:', response);
-        res.status(500).json({ 
-          error: 'No se pudo iniciar la llamada',
-          details: response.message 
-        });
-      }
-    });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ 
-      error: 'Error interno del servidor',
-      details: error.message 
-    });
-  }
+// Ruta principal
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    ami_connected: ami.isConnected()
-  });
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        message: 'WebRTC Server running',
+        asterisk: 'localhost:8088'
+    });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`📞 Listo para realizar llamadas a través de Asterisk`);
+// API para obtener configuración (opcional)
+app.get('/api/config', (req, res) => {
+    res.json({
+        sipServer: 'localhost',
+        wsServerHTTP: 'ws://localhost:8088/ws',
+        wsServerHTTPS: 'wss://localhost:8089/ws'
+    });
 });
+
+// Iniciar servidor HTTP
+const httpServer = http.createServer(app);
+httpServer.listen(HTTP_PORT, '0.0.0.0', () => {
+    console.log('\n=================================');
+    console.log('🚀 Servidor WebRTC Iniciado');
+    console.log('=================================');
+    console.log(`🌐 HTTP:  http://localhost:${HTTP_PORT}`);
+    console.log(`📱 Local: http://127.0.0.1:${HTTP_PORT}`);
+    console.log(`🌍 Red:   http://0.0.0.0:${HTTP_PORT}`);
+});
+
+// Intentar iniciar servidor HTTPS
+try {
+    const httpsOptions = {
+        key: fs.readFileSync('/etc/asterisk/keys/asterisk.key'),
+        cert: fs.readFileSync('/etc/asterisk/keys/asterisk.pem')
+    };
+
+    const httpsServer = https.createServer(httpsOptions, app);
+    httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+        console.log(`🔒 HTTPS: https://localhost:${HTTPS_PORT}`);
+        console.log('=================================');
+        console.log('');
+        console.log('✓ Asterisk WebSocket: ws://localhost:8088/ws');
+        console.log('✓ Asterisk WebSocket Secure: wss://localhost:8089/ws');
+        console.log('');
+        console.log('📝 Nota: Acepta el certificado en el navegador');
+        console.log('=================================\n');
+    });
+} catch (error) {
+    console.log('\n⚠️  HTTPS no disponible:', error.message);
+    console.log('   Ejecuta: sudo ./setup-webrtc-sip.sh\n');
+}
 
 // Manejo de cierre
 process.on('SIGINT', () => {
-  console.log('\n🛑 Cerrando servidor...');
-  ami.disconnect();
-  process.exit();
+    console.log('\n🛑 Cerrando servidor...');
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    console.log('\n🛑 Cerrando servidor...');
+    process.exit(0);
 });

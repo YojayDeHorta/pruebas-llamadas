@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asterisk Caller - Llamadas a Colombia</title>
+    <title>WebRTC Caller - Llamadas a Colombia</title>
     <style>
         * {
             margin: 0;
@@ -26,7 +26,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
-            max-width: 450px;
+            max-width: 500px;
             width: 100%;
         }
 
@@ -63,6 +63,56 @@
             font-size: 14px;
         }
 
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .status-indicator.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-indicator.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-indicator.connecting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected .status-dot {
+            background: #28a745;
+        }
+
+        .status-indicator.disconnected .status-dot {
+            background: #dc3545;
+        }
+
+        .status-indicator.connecting .status-dot {
+            background: #ffc107;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
         .form-group {
             margin-bottom: 25px;
         }
@@ -75,7 +125,7 @@
             font-size: 14px;
         }
 
-        select, input {
+        input {
             width: 100%;
             padding: 14px;
             border: 2px solid #e0e0e0;
@@ -84,10 +134,15 @@
             transition: all 0.3s;
         }
 
-        select:focus, input:focus {
+        input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
         }
 
         .phone-input-wrapper {
@@ -113,10 +168,15 @@
             margin-top: 5px;
         }
 
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
         button {
-            width: 100%;
+            flex: 1;
             padding: 16px;
-            background: #667eea;
             color: white;
             border: none;
             border-radius: 10px;
@@ -131,9 +191,8 @@
         }
 
         button:hover:not(:disabled) {
-            background: #5568d3;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
 
         button:active:not(:disabled) {
@@ -141,8 +200,32 @@
         }
 
         button:disabled {
-            background: #ccc;
+            opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        .btn-connect {
+            background: #28a745;
+        }
+
+        .btn-connect:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        .btn-call {
+            background: #667eea;
+        }
+
+        .btn-call:hover:not(:disabled) {
+            background: #5568d3;
+        }
+
+        .btn-hangup {
+            background: #dc3545;
+        }
+
+        .btn-hangup:hover:not(:disabled) {
+            background: #c82333;
         }
 
         button svg {
@@ -163,6 +246,31 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .call-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .call-info.active {
+            display: block;
+        }
+
+        .call-info h3 {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .call-timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            text-align: center;
         }
 
         .message {
@@ -187,6 +295,12 @@
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
 
         .info-box {
@@ -214,6 +328,14 @@
             color: #667eea;
             min-width: 20px;
         }
+
+        .hidden {
+            display: none !important;
+        }
+
+        audio {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -224,20 +346,29 @@
                     <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
                 </svg>
             </div>
-            <h1>Asterisk Caller</h1>
-            <p class="subtitle">Realiza llamadas a Colombia</p>
+            <h1>WebRTC Caller</h1>
+            <p class="subtitle">Llamadas a Colombia desde el navegador</p>
+            <div id="statusIndicator" class="status-indicator disconnected">
+                <span class="status-dot"></span>
+                <span id="statusText">Desconectado</span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="connectBtn" class="btn-connect">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <span id="connectBtnText">Conectar</span>
+            </button>
+        </div>
+
+        <div class="call-info" id="callInfo">
+            <h3>Llamada en curso</h3>
+            <div class="call-timer" id="callTimer">00:00</div>
         </div>
 
         <form id="callForm">
-            <div class="form-group">
-                <label for="extension">Tu Extensión</label>
-                <select id="extension" required>
-                    <option value="1001">1001 - PC</option>
-                    <option value="1002">1002 - Celular</option>
-                </select>
-                <p class="helper-text">Esta extensión recibirá la llamada primero</p>
-            </div>
-
             <div class="form-group">
                 <label for="phoneNumber">Número Colombiano</label>
                 <div class="phone-input-wrapper">
@@ -249,17 +380,27 @@
                         maxlength="10"
                         pattern="[0-9]{10}"
                         required
+                        disabled
                     >
                 </div>
                 <p class="helper-text">Ingresa 10 dígitos (sin código de país)</p>
             </div>
 
-            <button type="submit" id="callButton">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
-                </svg>
-                <span id="buttonText">Realizar Llamada</span>
-            </button>
+            <div class="button-group">
+                <button type="submit" id="callBtn" class="btn-call" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                    </svg>
+                    <span>Llamar</span>
+                </button>
+
+                <button type="button" id="hangupBtn" class="btn-hangup hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.68-1.36-2.66-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+                    </svg>
+                    <span>Colgar</span>
+                </button>
+            </div>
         </form>
 
         <div id="message" class="message"></div>
@@ -268,82 +409,302 @@
             <h3>Cómo funciona:</h3>
             <div class="info-item">
                 <span class="info-number">1.</span>
-                <span>Selecciona tu extensión y contesta cuando suene</span>
+                <span>Haz clic en "Conectar" y permite el acceso al micrófono</span>
             </div>
             <div class="info-item">
                 <span class="info-number">2.</span>
-                <span>La llamada se conectará automáticamente al número destino</span>
+                <span>Ingresa el número colombiano que deseas llamar</span>
             </div>
             <div class="info-item">
                 <span class="info-number">3.</span>
-                <span>Asegúrate de tener Zoiper abierto y conectado</span>
+                <span>Haz clic en "Llamar" y habla directamente desde el navegador</span>
             </div>
         </div>
     </div>
 
+    <!-- Audio elements -->
+    <audio id="remoteAudio" autoplay></audio>
+    <audio id="localAudio" muted autoplay></audio>
+
+    <!-- JsSIP Library -->
+    <script src="https://jssip.net/download/releases/jssip-3.10.0.min.js"></script>
+
     <script>
-        const form = document.getElementById('callForm');
+        // Verificar que JsSIP se haya cargado
+        if (typeof JsSIP === 'undefined') {
+            console.error('JsSIP no se cargó correctamente');
+            alert('Error: No se pudo cargar la librería JsSIP. Verifica tu conexión a Internet.');
+        } else {
+            console.log('JsSIP cargado correctamente, versión:', JsSIP.version);
+        }
+
+        // Configuración - Todo en localhost (mismo servidor)
+        const CONFIG = {
+            sipServer: 'localhost',
+            sipPort: 8088,
+            sipUser: '2000',
+            sipPassword: 'webrtc2000',
+            // Usa WSS si accedes por HTTPS (puerto 3443)
+            wsServer: 'ws://localhost:8088/ws'
+            // Usa WS si accedes por HTTP (puerto 3000)
+            // wsServer: 'ws://localhost:8088/ws'
+        };
+
+        // Estado de la aplicación
+        let ua = null;
+        let currentSession = null;
+        let callTimer = null;
+        let callStartTime = null;
+
+        // Elementos del DOM
+        const connectBtn = document.getElementById('connectBtn');
+        const connectBtnText = document.getElementById('connectBtnText');
+        const callBtn = document.getElementById('callBtn');
+        const hangupBtn = document.getElementById('hangupBtn');
         const phoneInput = document.getElementById('phoneNumber');
-        const extensionSelect = document.getElementById('extension');
-        const callButton = document.getElementById('callButton');
-        const buttonText = document.getElementById('buttonText');
         const messageDiv = document.getElementById('message');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const callForm = document.getElementById('callForm');
+        const callInfo = document.getElementById('callInfo');
+        const callTimerEl = document.getElementById('callTimer');
+        const remoteAudio = document.getElementById('remoteAudio');
 
         // Formatear input de teléfono
         phoneInput.addEventListener('input', function(e) {
             this.value = this.value.replace(/\D/g, '');
         });
 
-        // Manejar envío del formulario
-        form.addEventListener('submit', async function(e) {
+        // Conectar a Asterisk
+        connectBtn.addEventListener('click', async () => {
+            if (ua && ua.isRegistered()) {
+                // Desconectar
+                ua.unregister();
+                ua.stop();
+                ua = null;
+                updateStatus('disconnected');
+                return;
+            }
+
+            try {
+                updateStatus('connecting');
+                showMessage('Solicitando permisos de micrófono...', 'info');
+
+                // Solicitar permisos de micrófono
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+
+                showMessage('Conectando a Asterisk...', 'info');
+                console.log('Configurando JsSIP con:', CONFIG);
+
+                // Configurar JsSIP
+                const socket = new JsSIP.WebSocketInterface(CONFIG.wsServer);
+                
+                // Eventos del socket para debugging
+                socket.onconnect = () => {
+                    console.log('✓ WebSocket conectado');
+                };
+                
+                socket.ondisconnect = (e) => {
+                    console.log('✗ WebSocket desconectado', e);
+                };
+                
+                socket.onerror = (e) => {
+                    console.error('✗ Error en WebSocket', e);
+                };
+
+                const configuration = {
+                    sockets: [socket],
+                    uri: `sip:${CONFIG.sipUser}@${CONFIG.sipServer}`,
+                    password: CONFIG.sipPassword,
+                    display_name: 'WebRTC User',
+                    register: true,
+                    session_timers: false
+                };
+
+                console.log('Configuración UA:', configuration);
+                ua = new JsSIP.UA(configuration);
+
+                // Eventos de registro
+                ua.on('registered', () => {
+                    console.log('✓ Registrado en Asterisk');
+                    updateStatus('connected');
+                    showMessage('✓ Conectado exitosamente. Ya puedes realizar llamadas.', 'success');
+                    phoneInput.disabled = false;
+                    callBtn.disabled = false;
+                });
+
+                ua.on('unregistered', () => {
+                    console.log('✗ Desregistrado de Asterisk');
+                    updateStatus('disconnected');
+                    phoneInput.disabled = true;
+                    callBtn.disabled = true;
+                });
+
+                ua.on('registrationFailed', (e) => {
+                    console.error('✗ Fallo en registro:', e);
+                    updateStatus('disconnected');
+                    showMessage(`Error de conexión: ${e.cause}. Verifica que Asterisk esté configurado.`, 'error');
+                });
+
+                ua.on('connecting', () => {
+                    console.log('→ Conectando a Asterisk...');
+                });
+
+                ua.on('connected', () => {
+                    console.log('✓ Conectado al servidor SIP');
+                });
+
+                ua.on('disconnected', () => {
+                    console.log('✗ Desconectado del servidor SIP');
+                });
+
+                // Eventos de llamada
+                ua.on('newRTCSession', (e) => {
+                    const session = e.session;
+                    
+                    if (session.direction === 'incoming') {
+                        // Llamada entrante (si la necesitas)
+                        session.answer({
+                            mediaConstraints: { audio: true, video: false }
+                        });
+                    }
+
+                    session.on('accepted', () => {
+                        showMessage('✓ Llamada conectada', 'success');
+                        startCallTimer();
+                    });
+
+                    session.on('confirmed', () => {
+                        const remoteStream = new MediaStream();
+                        const receivers = session.connection.getReceivers();
+                        receivers.forEach(receiver => {
+                            remoteStream.addTrack(receiver.track);
+                        });
+                        remoteAudio.srcObject = remoteStream;
+                    });
+
+                    session.on('ended', () => {
+                        endCall();
+                        showMessage('Llamada finalizada', 'info');
+                    });
+
+                    session.on('failed', (e) => {
+                        endCall();
+                        showMessage(`Error en la llamada: ${e.cause}`, 'error');
+                    });
+
+                    currentSession = session;
+                });
+
+                ua.start();
+
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('disconnected');
+                showMessage('Error: No se pudo acceder al micrófono. Verifica los permisos.', 'error');
+            }
+        });
+
+        // Realizar llamada
+        callForm.addEventListener('submit', (e) => {
             e.preventDefault();
-
+            
             const phoneNumber = phoneInput.value;
-            const extension = extensionSelect.value;
-
             if (phoneNumber.length !== 10) {
                 showMessage('Por favor ingresa exactamente 10 dígitos', 'error');
                 return;
             }
 
-            // Deshabilitar botón
-            callButton.disabled = true;
-            buttonText.innerHTML = '<div class="spinner"></div> Llamando...';
-            hideMessage();
+            makeCall(phoneNumber);
+        });
+
+        function makeCall(phoneNumber) {
+            if (!ua || !ua.isRegistered()) {
+                showMessage('Error: No estás conectado. Haz clic en Conectar primero.', 'error');
+                return;
+            }
+
+            const sipUri = `sip:957${phoneNumber}@${CONFIG.sipServer}`;
+            
+            const options = {
+                mediaConstraints: { audio: true, video: false },
+                rtcOfferConstraints: {
+                    offerToReceiveAudio: 1,
+                    offerToReceiveVideo: 0
+                }
+            };
 
             try {
-                const response = await fetch('http://localhost:3000/api/call', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        phoneNumber: phoneNumber,
-                        extension: extension
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    showMessage(`✓ Llamando a +57 ${phoneNumber}... Tu extensión ${extension} sonará primero.`, 'success');
-                    phoneInput.value = '';
-                } else {
-                    showMessage(`Error: ${data.error || 'No se pudo realizar la llamada'}`, 'error');
-                }
+                currentSession = ua.call(sipUri, options);
+                showMessage('Realizando llamada...', 'info');
+                callBtn.disabled = true;
+                hangupBtn.classList.remove('hidden');
+                phoneInput.disabled = true;
             } catch (error) {
-                showMessage('Error de conexión con el servidor. Asegúrate que el servidor Node.js esté corriendo.', 'error');
-            } finally {
-                // Rehabilitar botón
-                callButton.disabled = false;
-                buttonText.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
-                    </svg>
-                    Realizar Llamada
-                `;
+                showMessage(`Error al realizar la llamada: ${error.message}`, 'error');
+            }
+        }
+
+        // Colgar
+        hangupBtn.addEventListener('click', () => {
+            if (currentSession) {
+                currentSession.terminate();
             }
         });
+
+        function endCall() {
+            currentSession = null;
+            stopCallTimer();
+            callBtn.disabled = false;
+            hangupBtn.classList.add('hidden');
+            phoneInput.disabled = false;
+            phoneInput.value = '';
+            callInfo.classList.remove('active');
+        }
+
+        function startCallTimer() {
+            callStartTime = Date.now();
+            callInfo.classList.add('active');
+            callTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                callTimerEl.textContent = 
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function stopCallTimer() {
+            if (callTimer) {
+                clearInterval(callTimer);
+                callTimer = null;
+            }
+        }
+
+        function updateStatus(status) {
+            statusIndicator.className = `status-indicator ${status}`;
+            
+            switch(status) {
+                case 'connected':
+                    statusText.textContent = 'Conectado';
+                    connectBtnText.textContent = 'Desconectar';
+                    connectBtn.classList.remove('btn-connect');
+                    connectBtn.classList.add('btn-hangup');
+                    break;
+                case 'connecting':
+                    statusText.textContent = 'Conectando...';
+                    connectBtn.disabled = true;
+                    break;
+                case 'disconnected':
+                    statusText.textContent = 'Desconectado';
+                    connectBtnText.textContent = 'Conectar';
+                    connectBtn.classList.remove('btn-hangup');
+                    connectBtn.classList.add('btn-connect');
+                    connectBtn.disabled = false;
+                    break;
+            }
+        }
 
         function showMessage(text, type) {
             messageDiv.textContent = text;
