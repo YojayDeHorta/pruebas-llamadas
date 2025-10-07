@@ -1,14 +1,15 @@
-// server-webrtc.js
-// Servidor para aplicación WebRTC (mismo servidor que Asterisk)
+// Servidor para aplicación WebRTC 
+require('dotenv').config(); // Carga las variables de entorno desde .env
 const express = require('express');
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+
 const app = express();
-const HTTP_PORT = 3500;
-const HTTPS_PORT = 3443;
+const HTTP_PORT = process.env.HTTP_PORT || 3500;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 
 // Middleware para servir archivos estáticos
 app.use(express.static(__dirname));
@@ -24,16 +25,16 @@ app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         message: 'WebRTC Server running',
-        asterisk: 'localhost:8088'
+        asterisk: `${process.env.ASTERISK_SIP_SERVER || 'localhost'}:8088`
     });
 });
 
 // API para obtener configuración (opcional)
 app.get('/api/config', (req, res) => {
     res.json({
-        sipServer: 'localhost',
-        wsServerHTTP: 'ws://localhost:8088/ws',
-        wsServerHTTPS: 'wss://localhost:8089/ws'
+        sipServer: process.env.ASTERISK_SIP_SERVER || 'localhost',
+        wsServerHTTP: `ws://${process.env.ASTERISK_SIP_SERVER || 'localhost'}:8088/ws`,
+        wsServerHTTPS: `wss://${process.env.ASTERISK_SIP_SERVER || 'localhost'}:8089/ws`
     });
 });
 

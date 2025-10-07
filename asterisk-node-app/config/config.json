@@ -1,0 +1,16 @@
+{
+  "development": {
+    "username": "postgres",
+    "password": "Test789#",
+    "database": "asterisk_app_dev",
+    "host": "127.0.0.1",
+    "dialect": "postgres"
+  },
+  "production": {
+    "username": "root_asterisk_node",
+    "password": "2S2MDx3SK[Asterisk_node",
+    "database": "asterisk_app_prod",
+    "host": "127.0.0.1",
+    "dialect": "postgres"
+  }
+}
