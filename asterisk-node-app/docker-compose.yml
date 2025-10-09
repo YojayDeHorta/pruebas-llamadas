@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: asterisk_postgres
+    environment:
+      POSTGRES_USER: root_asterisk
+      POSTGRES_PASSWORD: test789
+      POSTGRES_DB: asterisk_app
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

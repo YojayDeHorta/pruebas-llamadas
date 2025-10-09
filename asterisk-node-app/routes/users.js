@@ -17,12 +17,16 @@ router.post('/', auth, async (req, res) => {
       sipPassword: sipPassword
     });
     
-    // Crear en Asterisk
-    await asteriskService.createUser(extension, sipPassword);
-    
+    let asteriskUserCreated = false;
+    if (asteriskService.amiAvailable) {
+      asteriskUserCreated = await asteriskService.createUser(extension, sipPassword);
+    } else {
+      console.warn(`AMI no disponible o no funcionando correctamente. Usuario SIP ${extension} no creado automáticamente.`);
+    }
     res.status(201).json({ 
       message: 'Usuario creado con éxito',
-      extension: extension
+      extension: extension,
+      asteriskUserCreated
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

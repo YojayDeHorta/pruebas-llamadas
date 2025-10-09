@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { User } = require('../models');
-const asteriskService = require('../services/asteriskService');
+const fileBasedService = require('../services/filebasedService');
 const auth = require('../middleware/auth');
 
 // routes/calls.js
@@ -9,7 +9,7 @@ router.post('/outbound', auth, async (req, res) => {
   const user = await User.findByPk(req.user.id);
   
   try {
-    const callId = await asteriskService.initiateCall(user.extension, destination);
+    const callId = await fileBasedService.initiateCall(user.extension, destination);
     res.json({ callId });
   } catch (error) {
     res.status(500).json({ error: error.message });

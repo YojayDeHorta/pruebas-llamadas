@@ -1,17 +1,15 @@
-// services/asteriskService.js
+// services/asteriskService.js - Versión modificada
 const ari = require('ari-client');
 const AMI = require('asterisk-ami-client');
-const fs = require('fs').promises;
-const exec = require('util').promisify(require('child_process').exec);
 const config = require('../config/asterisk');
 
 class AsteriskService {
   constructor() {
     this.ariClient = null;
     this.amiClient = null;
+    this.amiAvailable = false;
   }
 
-  // Conexión a Asterisk REST Interface
   async connect() {
     try {
       const client = await ari.connect(
@@ -21,14 +19,15 @@ class AsteriskService {
       );
       
       this.ariClient = client;
-      
-      // Conectar a la aplicación Stasis
       client.start('asterisk-node-app');
-      
       console.log('Conectado a Asterisk ARI');
       
-      // Iniciar AMI
-      await this.connectAMI();
+      // Intentar conectar a AMI pero continuar si falla
+      try {
+        await this.connectAMI();
+      } catch (amiError) {
+        console.warn('AMI no disponible. Algunas funciones estarán limitadas:', amiError.message);
+      }
       
       return client;
     } catch (err) {
@@ -37,119 +36,129 @@ class AsteriskService {
     }
   }
   
-  // Conexión a Asterisk Manager Interface
+  // services/asteriskService.js - AMI connection part
   async connectAMI() {
     try {
       this.amiClient = new AMI({
         reconnect: true,
-        host: config.ami.host,
-        port: config.ami.port,
-        username: config.ami.username,
-        password: config.ami.password
+        reconnectTimeout: 5000,
+        maxAttemptsCount: 5,
+        keepAlive: true
       });
       
-      await this.amiClient.connect();
-      
+      await this.amiClient.connect(config.ami.username, config.ami.password, {host: config.ami.host, port: config.ami.port});
+      this.amiAvailable = true;
       console.log('Conectado a Asterisk AMI');
     } catch (err) {
-      console.error('Error conectando a Asterisk AMI:', err);
+      this.amiAvailable = false;
+      console.error('AMI Connection error:', err.message);
       throw err;
     }
   }
   
-  // Iniciar una llamada
-  async initiateCall(extension, destination) {
+  // Modificar métodos que usan AMI para verificar disponibilidad
+  async updateSipConfig(extension, password) {
+    if (!this.amiAvailable) {
+      console.warn(`AMI no disponible. No se puede actualizar SIP para extensión ${extension}`);
+      return false;
+    }
+    
     try {
-      // Crear un canal de Asterisk
-      const channel = await this.ariClient.channels.originate({
-        endpoint: `SIP/${extension}`,
-        extension: destination,
-        context: 'internal',
-        priority: 1,
-        callerId: `"${extension}" <${extension}>`
+      console.log(`Actualizando sip.conf para extensión ${extension}`);
+      // Alternativa: Usar AMI para añadir usuario SIP
+      await this.amiClient.action({
+        Action: 'UpdateConfig',
+        SrcFilename: 'sip.conf',
+        DstFilename: 'sip.conf',
+        Reload: 'yes',
+        Action_000000: 'newcat',
+        Cat_000000: extension,
+        Var_000001: 'type',
+        Value_000001: 'friend',
+        Var_000002: 'context',
+        Value_000002: 'internal',
+        Var_000003: 'host',
+        Value_000003: 'dynamic',
+        Var_000004: 'secret',
+        Value_000004: password,
+        Var_000005: 'nat',
+        Value_000005: 'force_rport,comedia',
+        Var_000006: 'directmedia',
+        Value_000006: 'no',
+        Var_000007: 'disallow',
+        Value_000007: 'all',
+        Var_000008: 'allow',
+        Value_000008: 'ulaw,alaw',
+        Var_000009: 'dtmfmode',
+        Value_000009: 'rfc2833',
+        Var_000010: 'qualify',
+        Value_000010: 'yes'
       });
-      
-      return channel.id;
-    } catch (err) {
-      console.error('Error iniciando llamada:', err);
-      throw err;
-    }
-  }
-  
-  // Crear usuario SIP
-  async createUser(extension, sipPassword) {
-    try {
-      // 1. Actualizar archivo sip.conf
-      await this.updateSipConfig(extension, sipPassword);
-      
-      // 2. Actualizar archivo extensions.conf
-      await this.updateExtensionsConfig(extension);
-      
-      // 3. Recargar configuración
-      await this.reloadConfiguration();
       
       return true;
     } catch (err) {
-      console.error('Error creando usuario SIP:', err);
-      throw err;
+      console.error('Error actualizando sip.conf:', err);
+      return false;
     }
   }
   
-  // Actualizar archivo sip.conf
-  async updateSipConfig(extension, password) {
-    const sipConfig = `
-[${extension}]
-type=friend
-context=internal
-host=dynamic
-secret=${password}
-nat=force_rport,comedia
-directmedia=no
-canreinvite=no
-qualify=yes
-dtmfmode=rfc2833
-insecure=invite,port
-disallow=all
-allow=ulaw
-allow=alaw
-`;
-
-    // Alternativa: Usar AMI para añadir usuario SIP
-    await this.amiClient.action({
-      Action: 'UpdateConfig',
-      SrcFilename: 'sip.conf',
-      DstFilename: 'sip.conf',
-      Action_00000: 'NewCat',
-      Cat_00000: extension,
-      Var_00000: 'type',
-      Value_00000: 'friend',
-      Var_00001: 'context',
-      Value_00001: 'internal',
-      // ... más parámetros
-    });
+  async createUser(extension, password) {
+    try {
+      if (!this.amiAvailable) {
+        console.warn(`AMI no disponible. Usuario SIP ${extension} no creado.`);
+        return false;
+      }
+      
+      // Actualizar archivo sip.conf usando AMI
+      await this.updateSipConfig(extension, password);
+      
+      // Actualizar archivo extensions.conf
+      await this.updateExtensionsConfig(extension);
+      
+      // Recargar configuración
+      await this.reloadConfiguration();
+      
+      console.log(`Usuario SIP ${extension} creado exitosamente`);
+      return true;
+    } catch (err) {
+      console.error('Error creando usuario SIP:', err);
+      return false;
+    }
   }
-  
-  // Actualizar archivo extensions.conf
+
+  // Implementar método para actualizar extensions.conf
   async updateExtensionsConfig(extension) {
+    console.log(`Actualizando extensions.conf para extensión ${extension}`);
+    if (!this.amiAvailable) {
+      return false;
+    }
+    
     try {
       // Usando AMI para modificar el plan de marcado
       await this.amiClient.action({
         Action: 'UpdateConfig',
         SrcFilename: 'extensions.conf',
         DstFilename: 'extensions.conf',
-        Action_00000: 'Append',
-        Cat_00000: 'internal',
-        Var_00000: `exten`,
-        Value_00000: `${extension},1,Dial(SIP/${extension},20)`,
+        Reload: 'yes',
+        Action_000000: 'append',
+        Cat_000000: 'internal',
+        Var_000000: 'exten',
+        Value_000000: `${extension},1,Dial(SIP/${extension},20)`
       });
+      
+      return true;
     } catch (err) {
       console.error('Error actualizando extensions.conf:', err);
-      throw err;
+      return false;
     }
   }
-  
-  // Recargar configuración
+
+  // Implementar método para recargar configuración
   async reloadConfiguration() {
+    if (!this.amiAvailable) {
+      return false;
+    }
+    console.log(`Recargando configuración...`);
     try {
       // Recargar SIP
       await this.amiClient.action({
@@ -162,74 +171,14 @@ allow=alaw
         Action: 'Command',
         Command: 'dialplan reload'
       });
+      
+      return true;
     } catch (err) {
       console.error('Error recargando configuración:', err);
-      throw err;
+      return false;
     }
   }
-  
-  // Responder una llamada entrante
-  async answerCall(channelId) {
-    try {
-      const channel = this.ariClient.channels.get({ channelId });
-      await channel.answer();
-      return true;
-    } catch (err) {
-      console.error('Error respondiendo llamada:', err);
-      throw err;
-    }
-  }
-  
-  // Colgar una llamada
-  async hangupCall(channelId) {
-    try {
-      const channel = this.ariClient.channels.get({ channelId });
-      await channel.hangup();
-      return true;
-    } catch (err) {
-      console.error('Error colgando llamada:', err);
-      throw err;
-    }
-  }
-  
-  // Transferir llamada
-  async transferCall(channelId, destination) {
-    try {
-      const channel = this.ariClient.channels.get({ channelId });
-      await channel.redirect({
-        endpoint: `SIP/${destination}`
-      });
-      return true;
-    } catch (err) {
-      console.error('Error transfiriendo llamada:', err);
-      throw err;
-    }
-  }
-  
-  // Obtener estado de extensiones
-  async getExtensionStatus() {
-    try {
-      const response = await this.amiClient.action({
-        Action: 'SIPpeers'
-      });
-      
-      return response;
-    } catch (err) {
-      console.error('Error obteniendo estado de extensiones:', err);
-      throw err;
-    }
-  }
-  
-  // Cerrar conexiones
-  async disconnect() {
-    if (this.ariClient) {
-      this.ariClient.close();
-    }
-    
-    if (this.amiClient) {
-      await this.amiClient.disconnect();
-    }
-  }
+
 }
 
 module.exports = new AsteriskService();

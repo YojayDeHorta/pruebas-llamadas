@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asterisk WebRTC - Panel de Llamadas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #3498db 0%, #8e44ad 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .icon {
+            width: 70px;
+            height: 70px;
+            background: #3498db;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+
+        .icon svg {
+            width: 35px;
+            height: 35px;
+            fill: white;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .status-indicator.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-indicator.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-indicator.connecting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected .status-dot {
+            background: #28a745;
+        }
+
+        .status-indicator.disconnected .status-dot {
+            background: #dc3545;
+        }
+
+        .status-indicator.connecting .status-dot {
+            background: #ffc107;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        input:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .phone-input-wrapper {
+            position: relative;
+        }
+
+        .phone-prefix {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-weight: 600;
+        }
+
+        .phone-input-wrapper input {
+            padding-left: 50px;
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 16px;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-connect {
+            background: #28a745;
+        }
+
+        .btn-connect:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        .btn-call {
+            background: #3498db;
+        }
+
+        .btn-call:hover:not(:disabled) {
+            background: #2980b9;
+        }
+
+        .btn-hangup {
+            background: #e74c3c;
+        }
+
+        .btn-hangup:hover:not(:disabled) {
+            background: #c0392b;
+        }
+
+        button svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .call-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .call-info.active {
+            display: block;
+        }
+
+        .call-timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+            text-align: center;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .user-info {
+            margin-top: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: left;
+        }
+        
+        .user-info-title {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .user-info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .user-info-label {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .user-info-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        audio {
+            display: none;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #3498db;
+            border-bottom: 2px solid #3498db;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .call-history {
+            margin-top: 15px;
+        }
+
+        .call-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            margin-bottom: 10px;
+        }
+
+        .call-item-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .call-item-number {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .call-item-date {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .call-item-duration {
+            font-size: 12px;
+            font-weight: 600;
+            color: #3498db;
+        }
+
+        .call-item-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .call-item-icon.outgoing {
+            background: #d4edda;
+        }
+
+        .call-item-icon.incoming {
+            background: #d1ecf1;
+        }
+
+        .call-item-icon.missed {
+            background: #f8d7da;
+        }
+
+        .call-item-icon svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .call-item-icon.outgoing svg {
+            fill: #28a745;
+        }
+
+        .call-item-icon.incoming svg {
+            fill: #17a2b8;
+        }
+
+        .call-item-icon.missed svg {
+            fill: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                </svg>
+            </div>
+            <h1>Asterisk WebRTC</h1>
+            <p class="subtitle">Sistema de telefonía IP</p>
+            
+            <div class="user-info">
+                <div class="user-info-title">Información de usuario</div>
+                <div class="user-info-item">
+                    <span class="user-info-label">Usuario:</span>
+                    <span class="user-info-value" id="userName">-</span>
+                </div>
+                <div class="user-info-item">
+                    <span class="user-info-label">Extensión:</span>
+                    <span class="user-info-value" id="userExtension">-</span>
+                </div>
+                <button id="logoutBtn" class="btn-hangup" style="margin-top: 10px; width: 100%;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                        <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                    </svg>
+                    <span>Cerrar Sesión</span>
+                </button>
+            </div>
+            
+            <div id="statusIndicator" class="status-indicator disconnected">
+                <span class="status-dot"></span>
+                <span id="statusText">Desconectado</span>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="dialer">Llamar</div>
+            <div class="tab" data-tab="history">Historial</div>
+        </div>
+
+        <!-- Tab: Dialer -->
+        <div class="tab-content active" id="dialerTab">
+            <div class="button-group">
+                <button id="connectBtn" class="btn-connect">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <span id="connectBtnText">Conectar</span>
+                </button>
+            </div>
+
+            <div class="call-info" id="callInfo">
+                <h3>Llamada en curso</h3>
+                <div class="call-timer" id="callTimer">00:00</div>
+            </div>
+
+            <form id="callForm">
+                <div class="form-group">
+                    <label for="phoneNumber">Número a llamar</label>
+                    <input 
+                        type="tel" 
+                        id="phoneNumber" 
+                        placeholder="Ingrese número de teléfono"
+                        required
+                        disabled
+                    >
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" id="callBtn" class="btn-call" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                        </svg>
+                        <span>Llamar</span>
+                    </button>
+
+                    <button type="button" id="hangupBtn" class="btn-hangup hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.68-1.36-2.66-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+                        </svg>
+                        <span>Colgar</span>
+                    </button>
+                </div>
+            </form>
+
+            <div id="message" class="message"></div>
+        </div>
+
+        <!-- Tab: History -->
+        <div class="tab-content" id="historyTab">
+            <h3 style="margin-bottom: 15px;">Historial de llamadas</h3>
+            <div class="call-history" id="callHistory">
+                <!-- Call history items will be added dynamically -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Audio elements -->
+    <audio id="remoteAudio" autoplay></audio>
+    <audio id="localAudio" muted autoplay></audio>
+
+    <!-- JsSIP Library -->
+    <script src="https://jssip.net/download/releases/jssip-3.10.0.min.js"></script>
+
+    <script>
+        // Verificar que JsSIP se haya cargado
+        if (typeof JsSIP === 'undefined') {
+            console.error('JsSIP no se cargó correctamente');
+            alert('Error: No se pudo cargar la librería JsSIP. Verifica tu conexión a Internet.');
+        } else {
+            console.log('JsSIP cargado correctamente, versión:', JsSIP.version);
+        }
+
+        // Variables globales
+        let ua = null;
+        let currentSession = null;
+        let callTimer = null;
+        let callStartTime = null;
+        let callHistory = JSON.parse(localStorage.getItem('callHistory') || '[]');
+        
+        // Obtener datos de usuario del almacenamiento local o de la sesión actual
+        let userData = JSON.parse(localStorage.getItem('user') || '{}');
+
+        // Referencias a elementos del DOM
+        const connectBtn = document.getElementById('connectBtn');
+        const connectBtnText = document.getElementById('connectBtnText');
+        const callBtn = document.getElementById('callBtn');
+        const hangupBtn = document.getElementById('hangupBtn');
+        const phoneInput = document.getElementById('phoneNumber');
+        const messageDiv = document.getElementById('message');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const callForm = document.getElementById('callForm');
+        const callInfo = document.getElementById('callInfo');
+        const callTimerEl = document.getElementById('callTimer');
+        const remoteAudio = document.getElementById('remoteAudio');
+        const callHistoryEl = document.getElementById('callHistory');
+        const userName = document.getElementById('userName');
+        const userExtension = document.getElementById('userExtension');
+
+        // Configuración para las pestañas
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remover clase active de todas las pestañas
+                tabs.forEach(t => t.classList.remove('active'));
+                
+                // Añadir clase active a la pestaña actual
+                this.classList.add('active');
+                
+                // Mostrar el contenido correspondiente
+                const tabName = this.getAttribute('data-tab');
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(tabName + 'Tab').classList.add('active');
+            });
+        });
+
+        // Inicialización
+        function init() {
+            // Mostrar información de usuario
+            if (userData.username) {
+                userName.textContent = userData.username;
+                userExtension.textContent = userData.extension || '-';
+                
+                // Pre-configurar UA si hay datos
+                setupUserAgent();
+            } else {
+                showMessage('No hay sesión activa. Inicie sesión primero.', 'info');
+            }
+            
+            // Cargar historial de llamadas
+            renderCallHistory();
+        }
+
+        // Cargar datos de usuario y actualizar la interfaz
+        function updateUserInterface() {
+            // Obtener datos actualizados
+            userData = JSON.parse(localStorage.getItem('user') || '{}');
+            
+            if (userData.username) {
+                userName.textContent = userData.username;
+                userExtension.textContent = userData.extension || '-';
+            } else {
+                userName.textContent = '-';
+                userExtension.textContent = '-';
+            }
+        }
+
+        // Configurar agente de usuario SIP
+        function setupUserAgent() {
+            if (!userData.extension || !userData.sipPassword) {
+                showMessage('Información de SIP incompleta. Inicie sesión nuevamente.', 'error');
+                return false;
+            }
+            
+            try {
+                // Obtener host actual
+                const host = window.location.hostname;
+                
+                // Configurar WebSocket (usar ws:// para HTTP, wss:// para HTTPS)
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+                const socket = new JsSIP.WebSocketInterface(`${wsProtocol}${host}:8088/ws`);
+                
+                // Configuración JsSIP
+                const configuration = {
+                    sockets: [socket],
+                    uri: `sip:${userData.extension}@${host}`,
+                    password: userData.sipPassword,
+                    register: true,
+                    register_expires: 180,
+                    session_timers: false,
+                    //probar con estas opciones si hay problemas de conexión
+                    connection_recovery_max_interval: 30,
+                    connection_recovery_min_interval: 2,
+                    no_answer_timeout: 60,
+                    register_expires: 120,
+                    traceSip: true
+                };
+                
+                // Crear agente de usuario SIP
+                ua = new JsSIP.UA(configuration);
+                
+                // Eventos de registro
+                ua.on('registered', () => {
+                    console.log('✓ Registrado en Asterisk');
+                    updateStatus('connected');
+                    showMessage('✓ Conectado exitosamente. Ya puedes realizar llamadas.', 'success');
+                    phoneInput.disabled = false;
+                    callBtn.disabled = false;
+                });
+                
+                ua.on('unregistered', () => {
+                    console.log('✗ Desregistrado de Asterisk');
+                    updateStatus('disconnected');
+                    phoneInput.disabled = true;
+                    callBtn.disabled = true;
+                });
+                
+                ua.on('registrationFailed', (e) => {
+                    console.error('✗ Fallo en registro:', e);
+                    updateStatus('disconnected');
+                    showMessage(`Error de conexión: ${e.cause}. Verifica la configuración SIP.`, 'error');
+                });
+                
+                // Eventos de llamada
+                ua.on('newRTCSession', (e) => {
+                    const session = e.session;
+                    
+                    // Si hay una sesión activa, terminarla
+                    if (currentSession) {
+                        currentSession.terminate();
+                    }
+                    
+                    currentSession = session;
+                    
+                    // Configurar interfaz para llamada
+                    callBtn.disabled = true;
+                    hangupBtn.classList.remove('hidden');
+                    phoneInput.disabled = true;
+                    
+                    if (session.direction === 'incoming') {
+                        // Llamada entrante
+                        const caller = session.remote_identity.uri.user;
+                        showMessage(`Llamada entrante de: ${caller}`, 'info');
+                        
+                        // Aceptar la llamada automáticamente (puedes cambiarlo para mostrar un diálogo)
+                        session.answer({
+                            mediaConstraints: { audio: true, video: false }
+                        });
+                    } else {
+                        // Llamada saliente
+                        showMessage('Llamando...', 'info');
+                    }
+                    
+                    // Eventos de sesión
+                    session.on('accepted', () => {
+                        showMessage('✓ Llamada conectada', 'success');
+                        startCallTimer();
+                    });
+                    
+                    session.on('confirmed', () => {
+                        const remoteStream = new MediaStream();
+                        const receivers = session.connection.getReceivers();
+                        receivers.forEach(receiver => {
+                            if (receiver.track) {
+                                remoteStream.addTrack(receiver.track);
+                            }
+                        });
+                        remoteAudio.srcObject = remoteStream;
+                    });
+                    
+                    session.on('ended', () => {
+                        const duration = callTimer ? Math.floor((Date.now() - callStartTime) / 1000) : 0;
+                        
+                        // Guardar en historial
+                        addToCallHistory({
+                            number: session.remote_identity.uri.user,
+                            direction: session.direction,
+                            duration: duration,
+                            timestamp: Date.now(),
+                            status: 'completed'
+                        });
+                        
+                        endCall();
+                        showMessage('Llamada finalizada', 'info');
+                    });
+                    
+                    session.on('failed', (e) => {
+                        // Guardar en historial
+                        addToCallHistory({
+                            number: session.remote_identity.uri.user,
+                            direction: session.direction,
+                            duration: 0,
+                            timestamp: Date.now(),
+                            status: 'failed'
+                        });
+                        
+                        endCall();
+                        showMessage(`Error en la llamada: ${e.cause}`, 'error');
+                    });
+                });
+                
+                return true;
+            } catch (error) {
+                console.error('Error configurando UA:', error);
+                showMessage('Error en la configuración SIP. Inténtalo de nuevo.', 'error');
+                return false;
+            }
+        }
+
+        // Conectar a Asterisk
+        connectBtn.addEventListener('click', async () => {
+            if (ua && ua.isRegistered()) {
+                // Desconectar
+                ua.unregister();
+                ua.stop();
+                ua = null;
+                updateStatus('disconnected');
+                return;
+            }
+            
+            try {
+                updateStatus('connecting');
+                showMessage('Solicitando permisos de micrófono...', 'info');
+                
+                // Solicitar permisos de micrófono
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Configurar y conectar UA
+                if (setupUserAgent()) {
+                    showMessage('Conectando a Asterisk...', 'info');
+                    ua.start();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('disconnected');
+                showMessage('Error: No se pudo acceder al micrófono. Verifica los permisos.', 'error');
+            }
+        });
+
+        // Realizar llamada
+        callForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const phoneNumber = phoneInput.value.trim();
+            
+            if (!phoneNumber) {
+                showMessage('Por favor ingresa un número de teléfono', 'error');
+                return;
+            }
+            
+            makeCall(phoneNumber);
+        });
+        
+        // Función para realizar llamada
+        function makeCall(phoneNumber) {
+            if (!ua || !ua.isRegistered()) {
+                showMessage('Error: No estás conectado. Haz clic en Conectar primero.', 'error');
+                return;
+            }
+            
+            // Formato del número (agregar prefijo si es necesario)
+            let sipUri;
+            
+            // Si el número comienza con +, es internacional
+            if (phoneNumber.startsWith('+')) {
+                sipUri = `sip:${phoneNumber.substring(1)}@${window.location.hostname}`;
+            } 
+            // Si es un número colombiano de 10 dígitos
+            else if (/^[0-9]{10}$/.test(phoneNumber)) {
+                sipUri = `sip:957${phoneNumber}@${window.location.hostname}`;
+            } 
+            // Si es una extensión interna
+            else if (/^[0-9]{3,4}$/.test(phoneNumber)) {
+                sipUri = `sip:${phoneNumber}@${window.location.hostname}`;
+            } 
+            // Cualquier otro formato
+            else {
+                sipUri = `sip:${phoneNumber}@${window.location.hostname}`;
+            }
+            
+            const options = {
+                mediaConstraints: { audio: true, video: false },
+                rtcOfferConstraints: {
+                    offerToReceiveAudio: 1,
+                    offerToReceiveVideo: 0
+                }
+            };
+            
+            try {
+                currentSession = ua.call(sipUri, options);
+                showMessage('Realizando llamada...', 'info');
+                callBtn.disabled = true;
+                hangupBtn.classList.remove('hidden');
+                phoneInput.disabled = true;
+            } catch (error) {
+                showMessage(`Error al realizar la llamada: ${error.message}`, 'error');
+            }
+        }
+
+        // Colgar llamada
+        hangupBtn.addEventListener('click', () => {
+            if (currentSession) {
+                currentSession.terminate();
+            }
+        });
+        
+        // Terminar llamada actual
+        function endCall() {
+            currentSession = null;
+            stopCallTimer();
+            callBtn.disabled = false;
+            hangupBtn.classList.add('hidden');
+            phoneInput.disabled = false;
+            callInfo.classList.remove('active');
+        }
+        
+        // Iniciar temporizador de llamada
+        function startCallTimer() {
+            callStartTime = Date.now();
+            callInfo.classList.add('active');
+            callTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                callTimerEl.textContent = 
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }, 1000);
+        }
+        
+        // Detener temporizador de llamada
+        function stopCallTimer() {
+            if (callTimer) {
+                clearInterval(callTimer);
+                callTimer = null;
+            }
+        }
+        
+        // Actualizar indicador de estado
+        function updateStatus(status) {
+            statusIndicator.className = `status-indicator ${status}`;
+            
+            switch(status) {
+                case 'connected':
+                    statusText.textContent = 'Conectado';
+                    connectBtnText.textContent = 'Desconectar';
+                    connectBtn.classList.remove('btn-connect');
+                    connectBtn.classList.add('btn-hangup');
+                    break;
+                case 'connecting':
+                    statusText.textContent = 'Conectando...';
+                    connectBtn.disabled = true;
+                    break;
+                case 'disconnected':
+                    statusText.textContent = 'Desconectado';
+                    connectBtnText.textContent = 'Conectar';
+                    connectBtn.classList.remove('btn-hangup');
+                    connectBtn.classList.add('btn-connect');
+                    connectBtn.disabled = false;
+                    break;
+            }
+        }
+        
+        // Mostrar mensaje en la interfaz
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type} show`;
+            
+            // Ocultar después de 5 segundos
+            setTimeout(() => {
+                messageDiv.className = 'message';
+            }, 5000);
+        }
+        
+        // Añadir llamada al historial
+        function addToCallHistory(call) {
+            // Limitar historial a 20 llamadas
+            if (callHistory.length >= 20) {
+                callHistory.pop();
+            }
+            
+            callHistory.unshift(call);
+            localStorage.setItem('callHistory', JSON.stringify(callHistory));
+            
+            // Actualizar la interfaz
+            renderCallHistory();
+        }
+        
+        // Renderizar historial de llamadas
+        function renderCallHistory() {
+            callHistoryEl.innerHTML = '';
+            
+            if (callHistory.length === 0) {
+                callHistoryEl.innerHTML = '<p>No hay llamadas registradas</p>';
+                return;
+            }
+            
+            callHistory.forEach(call => {
+                const callItem = document.createElement('div');
+                callItem.className = 'call-item';
+                
+                // Determinar el tipo de icono
+                let iconType = 'outgoing';
+                if (call.direction === 'incoming') {
+                    iconType = call.status === 'completed' ? 'incoming' : 'missed';
+                }
+                
+                // Formatear duración
+                const minutes = Math.floor(call.duration / 60);
+                const seconds = call.duration % 60;
+                const formattedDuration = 
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                // Formatear fecha
+                const date = new Date(call.timestamp);
+                const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                
+                // Iconos para los tipos de llamadas
+                const icons = {
+                    outgoing: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/></svg>',
+                    incoming: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 5.41L18.59 4 7 15.59V9H5v10h10v-2H8.41L20 5.41z"/></svg>',
+                    missed: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.59 7L12 14.59 6.41 9H11V7H3v8h2v-4.59l7 7 9-9L19.59 7z"/></svg>'
+                };
+                
+                callItem.innerHTML = `
+                    <div class="call-item-icon ${iconType}">${icons[iconType]}</div>
+                    <div class="call-item-info">
+                        <span class="call-item-number">${call.number}</span>
+                        <span class="call-item-date">${formattedDate}</span>
+                    </div>
+                    <div class="call-item-duration">${formattedDuration}</div>
+                `;
+                
+                callHistoryEl.appendChild(callItem);
+            });
+        }
+        
+        // Función para cerrar sesión
+        function logout() {
+            // Si hay una sesión SIP activa, cerrarla
+            if (ua) {
+                if (currentSession) {
+                    currentSession.terminate();
+                }
+                ua.unregister();
+                ua.stop();
+                ua = null;
+            }
+            
+            // Eliminar datos de usuario del localStorage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redireccionar a la página de inicio de sesión
+            window.location.href = '/login.html';
+        }
+        
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+            
+            // Configurar botón de cierre de sesión
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            
+            // Verificar cambios en localStorage (por ejemplo, al iniciar sesión)
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'user') {
+                    updateUserInterface();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
