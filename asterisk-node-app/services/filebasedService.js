@@ -10,7 +10,7 @@ class FileBasedService {
       
       // Actualizar archivos
       await this.updateSipConfig(extension, password);
-      await this.updateExtensionsConfig(extension);
+      await this.updateQueueConfig(extension);
       
       // Recargar configuración
       await this.reloadConfig();
@@ -29,28 +29,26 @@ type=friend
 context=internal
 host=dynamic
 secret=${password}
-encryption = yes
-avpf = yes
-icesupport = yes
-directmedia = no
-transport = ws,wss
-force_avp = yes
-dtlsenable = yes
-dtlsverify = no
-dtlscertfile = /etc/asterisk/keys/asterisk.pem
-dtlsprivatekey = /etc/asterisk/keys/asterisk.key
-dtlssetup = actpass
-rtcp_mux = yes
-disallow = all
-allow = opus
-allow = ulaw
-allow = alaw
-nat = force_rport,comedia
-qualify = yes
-dtmfmode = rfc2833
-insecure = invite,port
-callgroup=1         
-pickupgroup=1
+encryption=yes
+avpf=yes
+icesupport=yes
+directmedia=no
+transport=ws,wss
+force_avp=yes
+dtlsenable=yes
+dtlsverify=no
+dtlscertfile=/etc/asterisk/keys/asterisk.pem
+dtlsprivatekey=/etc/asterisk/keys/asterisk.key
+dtlssetup=actpass
+rtcp_mux=yes
+disallow=all
+allow=opus
+allow=ulaw
+allow=alaw
+nat=force_rport,comedia
+qualify=yes
+dtmfmode=rfc2833
+insecure=invite,port
 `;
 
     try {
@@ -75,53 +73,29 @@ pickupgroup=1
       throw err;
     }
   }
-  
-  async updateExtensionsConfig(extension) {
-    const extensionLine = `exten => ${extension},1,Dial(SIP/${extension},20)\n`;
-    
+
+  async updateQueueConfig(extension) {
+    const queueConfig = `member => SIP/${extension}\n`;
+
     try {
-      const extensionsPath = '/etc/asterisk/extensions.conf';
+      const queuePath = '/etc/asterisk/queues.conf';
       
       // Leer archivo actual
-      const currentContent = await fs.readFile(extensionsPath, 'utf8');
+      const currentContent = await fs.readFile(queuePath, 'utf8');
       
-      // Buscar sección [internal]
-      const internalIndex = currentContent.indexOf('[internal]');
-      if (internalIndex === -1) {
-        console.error('No se encontró la sección [internal] en extensions.conf');
-        return false;
-      }
-      
-      // Verificar si la extensión ya existe
-      if (currentContent.includes(`exten => ${extension},`)) {
-        console.log(`La extensión ${extension} ya existe en extensions.conf`);
+      // Verificar si la extensión ya es miembro
+      if (currentContent.includes(`member => SIP/${extension}`)) {
+        console.log(`La extensión ${extension} ya es miembro en queues.conf`);
         return true;
       }
       
-      // Dividir contenido
-      const beforeInternal = currentContent.substring(0, internalIndex);
-      let afterInternal = currentContent.substring(internalIndex);
+      // Añadir nueva configuración al final
+      await fs.appendFile(queuePath, queueConfig);
+      console.log(`Extensión ${extension} añadida a queues.conf`);
       
-      // Encontrar final de la sección [internal]
-      const nextSectionIndex = afterInternal.indexOf('[', 1);
-      
-      if (nextSectionIndex !== -1) {
-        // Hay una sección después de [internal]
-        const internalSection = afterInternal.substring(0, nextSectionIndex);
-        const restOfFile = afterInternal.substring(nextSectionIndex);
-        
-        // Insertar extensión al final de la sección [internal]
-        const newContent = beforeInternal + internalSection + extensionLine + restOfFile;
-        await fs.writeFile(extensionsPath, newContent);
-      } else {
-        // [internal] es la última sección
-        await fs.appendFile(extensionsPath, extensionLine);
-      }
-      
-      console.log(`Extensión ${extension} añadida a extensions.conf`);
       return true;
     } catch (err) {
-      console.error('Error actualizando extensions.conf:', err.message);
+      console.error('Error actualizando queue.conf:', err.message);
       throw err;
     }
   }
@@ -136,6 +110,10 @@ pickupgroup=1
       await execPromise('sudo asterisk -rx "dialplan reload"');
       console.log('Plan de marcado recargado');
       
+      // Recargar colas
+      await execPromise('sudo asterisk -rx "queue reload members"');
+      console.log('Colas recargadas');
+
       return true;
     } catch (err) {
       console.error('Error recargando configuración:', err.message);

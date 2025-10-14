@@ -42,68 +42,68 @@ tlsprivatekey=/etc/asterisk/keys/asterisk.key
 EOF
 
 # 6. Añadir extensiones WebRTC a sip.conf
-echo ""
-echo "Añadiendo extensiones WebRTC a sip.conf..."
-sudo tee -a /etc/asterisk/sip.conf > /dev/null << 'EOF'
+# echo ""
+# echo "Añadiendo extensiones WebRTC a sip.conf..."
+# sudo tee -a /etc/asterisk/sip.conf > /dev/null << 'EOF'
 
-; ===================================
-; Configuración WebRTC con SIP
-; ===================================
+# ; ===================================
+# ; Configuración WebRTC con SIP
+# ; ===================================
 
-; Extensión WebRTC 2000
-[2000]
-type=friend
-context=internal
-host=dynamic
-secret=webrtc2000
-encryption=yes
-avpf=yes
-icesupport=yes
-directmedia=no
-transport=ws,wss
-force_avp=yes
-dtlsenable=yes
-dtlsverify=no
-dtlscertfile=/etc/asterisk/keys/asterisk.pem
-dtlsprivatekey=/etc/asterisk/keys/asterisk.key
-dtlssetup=actpass
-rtcp_mux=yes
-disallow=all
-allow=opus
-allow=ulaw
-allow=alaw
-nat=force_rport,comedia
-qualify=yes
-dtmfmode=rfc2833
-insecure=invite,port
+# ; Extensión WebRTC 2000
+# [2000]
+# type=friend
+# context=internal
+# host=dynamic
+# secret=webrtc2000
+# encryption=yes
+# avpf=yes
+# icesupport=yes
+# directmedia=no
+# transport=ws,wss
+# force_avp=yes
+# dtlsenable=yes
+# dtlsverify=no
+# dtlscertfile=/etc/asterisk/keys/asterisk.pem
+# dtlsprivatekey=/etc/asterisk/keys/asterisk.key
+# dtlssetup=actpass
+# rtcp_mux=yes
+# disallow=all
+# allow=opus
+# allow=ulaw
+# allow=alaw
+# nat=force_rport,comedia
+# qualify=yes
+# dtmfmode=rfc2833
+# insecure=invite,port
 
-; Extensión WebRTC 2001
-[2001]
-type=friend
-context=internal
-host=dynamic
-secret=webrtc2001
-encryption=yes
-avpf=yes
-icesupport=yes
-directmedia=no
-transport=ws,wss
-force_avp=yes
-dtlsenable=yes
-dtlsverify=no
-dtlscertfile=/etc/asterisk/keys/asterisk.pem
-dtlsprivatekey=/etc/asterisk/keys/asterisk.key
-dtlssetup=actpass
-rtcp_mux=yes
-disallow=all
-allow=opus
-allow=ulaw
-allow=alaw
-nat=force_rport,comedia
-qualify=yes
-dtmfmode=rfc2833
-insecure=invite,port
-EOF
+# ; Extensión WebRTC 2001
+# [2001]
+# type=friend
+# context=internal
+# host=dynamic
+# secret=webrtc2001
+# encryption=yes
+# avpf=yes
+# icesupport=yes
+# directmedia=no
+# transport=ws,wss
+# force_avp=yes
+# dtlsenable=yes
+# dtlsverify=no
+# dtlscertfile=/etc/asterisk/keys/asterisk.pem
+# dtlsprivatekey=/etc/asterisk/keys/asterisk.key
+# dtlssetup=actpass
+# rtcp_mux=yes
+# disallow=all
+# allow=opus
+# allow=ulaw
+# allow=alaw
+# nat=force_rport,comedia
+# qualify=yes
+# dtmfmode=rfc2833
+# insecure=invite,port
+# EOF
 
 # 7. Verificar que rtp.conf tenga el rango correcto
 echo ""
@@ -119,6 +119,7 @@ EOF
 # 8. Configurar firewall
 echo ""
 echo "Configurando firewall..."
+sudo ufw allow 5060/tcp comment "SIP"
 sudo ufw allow 8088/tcp comment "WebSocket HTTP"
 sudo ufw allow 8089/tcp comment "WebSocket HTTPS"
 sudo ufw allow 10000:20000/udp comment "RTP"

@@ -18,8 +18,8 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Conexión a PostgreSQL establecida');
     
-    const ariClient = await asteriskService.connect();
-    setupAsteriskEvents(ariClient, io);
+    // const ariClient = await asteriskService.connect();
+    // setupAsteriskEvents(ariClient, io);
     
     server.listen(PORT, () => {
       console.log(`Servidor ejecutándose en puerto ${PORT}`);
