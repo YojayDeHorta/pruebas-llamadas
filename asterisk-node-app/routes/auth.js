@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { User, Role, Permission } = require('../models');
 const auth = require('../middleware/auth');
 const fileBasedService = require('../services/filebasedService');
 
@@ -71,6 +71,17 @@ router.post('/register', async (req, res) => {
     } catch (asteriskError) {
       console.warn(`Error al crear extensión ${extension}:`, asteriskError.message);
     }
+
+    // Asignar rol por defecto ('user')
+    const defaultRole = await Role.findOne({ where: { name: 'user' } });
+    if (defaultRole) {
+      await user.addRole(defaultRole);
+    } else {
+      // Opcional: Crear el rol si no existe
+      const newUserRole = await Role.create({ name: 'user', description: 'Rol de usuario estándar' });
+      await Permission.create({ name: 'make_calls', description: 'Permite realizar llamadas' }).then(p => newUserRole.addPermission(p));
+      await user.addRole(newUserRole);
+    }
     
     res.status(201).json({ 
       message: 'Usuario registrado correctamente', 
@@ -83,6 +94,13 @@ router.post('/register', async (req, res) => {
 });
 
 // Ruta: POST /api/auth/login
+// Ruta para mostrar el formulario de login
+router.get('/login', (req, res) => {
+  // Renderiza la plantilla EJS. Pasa un error si existe en la query (tras una redirección).
+  res.render('login', { error: req.query.error });
+});
+
+// Ruta para procesar el formulario de login (ya no es una API REST pura)
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -90,23 +108,48 @@ router.post('/login', async (req, res) => {
     // Validación básica
     if (!username || !password) {
       return res.status(400).json({ message: 'Todos los campos son obligatorios' });
+      return res.redirect('/login?error=Todos los campos son obligatorios');
     }
     
     // Buscar usuario
-    const user = await User.findOne({ where: { username } });
+    const user = await User.findOne({
+      where: { username },
+      include: {
+        model: Role,
+        as: 'Roles',
+        attributes: ['name'],
+        through: { attributes: [] }, // No incluir la tabla intermedia en el resultado
+        include: {
+          model: Permission,
+          as: 'Permissions',
+          attributes: ['name'],
+          through: { attributes: [] }
+        }
+      }
+    });
     // Verificar si existe y contraseña válida
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: 'Credenciales inválidas' });
+      return res.redirect('/login?error=Credenciales inválidas');
     }
     
     // Verificar si usuario está activo
     if (!user.active) {
       return res.status(401).json({ message: 'Usuario desactivado' });
+      return res.redirect('/login?error=Usuario desactivado');
     }
     
     // Crear token JWT
+    const userRoles = user.Roles.map(role => role.name);
+    const userPermissions = user.Roles.flatMap(role => role.Permissions.map(p => p.name));
+    const uniquePermissions = [...new Set(userPermissions)]; // Eliminar duplicados
+
     const token = jwt.sign(
-      { id: user.id },
+      { 
+        id: user.id,
+        roles: userRoles,
+        permissions: uniquePermissions
+      },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -118,9 +161,19 @@ router.post('/login', async (req, res) => {
         id: user.id,
         username: user.username,
         extension: user.extension,
-        sipPassword: user.sipPassword
+        sipPassword: user.sipPassword,
+        roles: userRoles,
+        permissions: uniquePermissions
       }
     });
+    // Guardar información del usuario en la sesión
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      roles: user.Roles.map(role => role.name)
+    };
+    // Redirigir al dashboard
+    res.redirect('/dashboard');
   } catch (error) {
     console.error('Error en login:', error);
     res.status(500).json({ message: 'Error en el servidor' });

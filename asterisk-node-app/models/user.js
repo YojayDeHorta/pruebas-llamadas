@@ -1,6 +1,6 @@
 // models/user.js
 module.exports = (sequelize, DataTypes) => {
-  const bcrypt = require('bcrypt');
+  const bcrypt = require('bcrypt');  const { Model } = require('sequelize');
   const User = sequelize.define('User', {
     username: {
       type: DataTypes.STRING,
@@ -28,6 +28,16 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: true
     }
   });
+
+  // Definir el método de asociación
+  User.associate = (models) => {
+    // Un usuario puede tener muchos roles
+    User.belongsToMany(models.Role, {
+      through: 'UserRoles',
+      foreignKey: 'userId',
+      otherKey: 'roleId'
+    });
+  };
   
   // Hook para hashear contraseña
   User.beforeCreate(async (user) => {
